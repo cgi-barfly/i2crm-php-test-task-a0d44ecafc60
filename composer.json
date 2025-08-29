@@ -1,0 +1,27 @@
+{
+    "name": "i2crm/whatsapp-stream-crypto",
+    "description": "PSR-7 stream decorators for WhatsApp-style encryption/decryption",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.0",
+        "ext-openssl": "*",
+        "guzzlehttp/psr7": "^2.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "I2CRM\\WSC\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "you",
+            "email": "you@example.com"
+        }
+    ],
+    "bin": [
+        "bin/encrypt",
+        "bin/decrypt",
+        "bin/sidecar"
+    ]
+}

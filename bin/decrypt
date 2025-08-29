@@ -1,0 +1,21 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use I2CRM\WSC\{MediaType, KeyMaterial, DecryptingStream};
+use GuzzleHttp\Psr7\Utils;
+
+if ($argc < 5) {
+	fwrite(STDERR, "Usage: decrypt <media-type> <media-key-hex> <input> <output>\n");
+	exit(1);
+}
+
+[$_, $mediaType, $mediaKeyHex, $in, $out] = $argv;
+$mediaKey = hex2bin($mediaKeyHex);
+$keys = KeyMaterial::deriveFromMediaKey($mediaKey, $mediaType);
+$source = Utils::streamFor(file_get_contents($in));
+$decStream = new DecryptingStream($source, $keys);
+file_put_contents($out, $decStream->getContents());
+
+
