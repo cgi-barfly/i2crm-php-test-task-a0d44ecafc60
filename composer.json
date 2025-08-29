@@ -22,6 +22,7 @@
     "bin": [
         "bin/encrypt",
         "bin/decrypt",
-        "bin/sidecar"
+        "bin/sidecar",
+        "bin/test-sources"
     ]
 }

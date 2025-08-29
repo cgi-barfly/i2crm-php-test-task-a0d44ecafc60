@@ -1,0 +1,113 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use I2CRM\WSC\{MediaType, KeyMaterial, DecryptingStream, EncryptingStream, Sidecar};
+use GuzzleHttp\Psr7\Utils;
+
+function readMediaKey(string $path): string {
+	if (!file_exists($path)) {
+		fwrite(STDERR, "Key file not found: {$path}\n");
+		exit(1);
+	}
+	$raw = file_get_contents($path);
+	$trim = trim($raw);
+	if (preg_match('/^[0-9a-fA-F]{64}$/', $trim)) {
+		$key = hex2bin($trim);
+	} else {
+		$key = $raw;
+	}
+	if (strlen($key) !== 32) {
+		fwrite(STDERR, "Invalid mediaKey length in {$path}; expected 32 bytes (or 64 hex).\n");
+		exit(1);
+	}
+	return $key;
+}
+
+function ensureDir(string $dir): void {
+	if (!is_dir($dir)) {
+		mkdir($dir, 0777, true);
+	}
+}
+
+function hashOf(string $path): string {
+	return hash_file('sha256', $path);
+}
+
+function testOne(string $type, bool $verifySidecar): void {
+	$srcDir = __DIR__ . '/../samples';
+	$samplesDir = __DIR__ . '/../samples';
+	$outDir = __DIR__ . '/../out';
+	ensureDir($outDir);
+
+	$keyPath = $srcDir . '/' . $type . '.key';
+	$encPath = $samplesDir . '/' . $type . '.encrypted';
+	$origPath = $samplesDir . '/' . $type . '.original';
+	$decOut = $outDir . '/' . $type . '.decrypted';
+
+	if (!file_exists($encPath)) {
+		fwrite(STDERR, "Missing encrypted sample: {$encPath}\n");
+		return;
+	}
+	if (!file_exists($origPath)) {
+		fwrite(STDERR, "Missing original sample: {$origPath}\n");
+		return;
+	}
+
+	$mediaKey = readMediaKey($keyPath);
+	$keys = KeyMaterial::deriveFromMediaKey($mediaKey, $type);
+
+	$encStream = Utils::streamFor(file_get_contents($encPath));
+	$dec = new DecryptingStream($encStream, $keys);
+	file_put_contents($decOut, $dec->getContents());
+
+	$h1 = hashOf($origPath);
+	$h2 = hashOf($decOut);
+	$ok = hash_equals($h1, $h2);
+	echo "[{$type}] decrypt: " . ($ok ? 'OK' : 'FAIL') . "\n";
+	if (!$ok) {
+		echo "  expected: {$h1}\n  got:      {$h2}\n";
+	}
+
+	if ($verifySidecar && ($type === MediaType::VIDEO || $type === MediaType::AUDIO)) {
+		$sidecarOut = $outDir . '/' . $type . '.sidecar';
+		$sidecarSample = $samplesDir . '/' . $type . '.sidecar';
+		if (!file_exists($sidecarSample)) {
+			echo "  sidecar sample missing; skipping\n";
+		} else {
+			$plain = Utils::streamFor(file_get_contents($origPath));
+			$reEnc = new EncryptingStream($plain, $keys);
+			$generated = Sidecar::generate($reEnc, $keys);
+			file_put_contents($sidecarOut, $generated);
+			$hs = hashOf($sidecarSample);
+			$hg = hashOf($sidecarOut);
+			$okS = hash_equals($hs, $hg);
+			echo "  sidecar: " . ($okS ? 'OK' : 'FAIL') . "\n";
+			if (!$okS) {
+				echo "    expected: {$hs}\n    got:      {$hg}\n";
+			}
+		}
+	}
+}
+
+$types = [MediaType::IMAGE, MediaType::AUDIO, MediaType::VIDEO];
+$verifySidecar = in_array('--verify-sidecar', $argv, true) || in_array('--sidecar', $argv, true);
+
+// Optional: filter by single type passed as first arg
+if ($argc >= 2 && $argv[1][0] !== '-') {
+	$filter = strtoupper($argv[1]);
+	$types = [$filter];
+}
+
+foreach ($types as $t) {
+	// skip types without sources key
+	$keyPath = __DIR__ . '/../samples/' . $t . '.key';
+	if (!file_exists($keyPath)) {
+		echo "$keyPath [{$t}] sources key not found; skipping\n";
+		continue;
+	}
+	testOne($t, $verifySidecar);
+}
+
+

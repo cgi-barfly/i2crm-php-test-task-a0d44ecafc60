@@ -30,12 +30,13 @@ final class Crypto
 
 	public static function aesCbcEncrypt(string $plaintext, string $key, string $iv): string
 	{
-		return openssl_encrypt(self::pkcs7Pad($plaintext), 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
+		$input = self::pkcs7Pad($plaintext);
+		return openssl_encrypt($input, 'aes-256-cbc', $key, OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING, $iv);
 	}
 
 	public static function aesCbcDecrypt(string $ciphertext, string $key, string $iv): string
 	{
-		$decrypted = openssl_decrypt($ciphertext, 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
+		$decrypted = openssl_decrypt($ciphertext, 'aes-256-cbc', $key, OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING, $iv);
 		return self::pkcs7Unpad($decrypted);
 	}
 
