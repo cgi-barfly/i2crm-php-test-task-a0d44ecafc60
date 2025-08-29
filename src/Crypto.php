@@ -53,7 +53,7 @@ final class Crypto
 	 * @param string $iv 16 bytes
 	 * @return string ciphertext
 	 */
-	public static function aesCbcEncrypt(string $plaintext, string $key, string $iv): string
+	public static function aesCbcEncrypt(string $plaintext, string $key, string $iv): string|false
 	{
 		$input = self::pkcs7Pad($plaintext);
 		return openssl_encrypt($input, 'aes-256-cbc', $key, OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING, $iv);
@@ -70,8 +70,16 @@ final class Crypto
 	public static function aesCbcDecrypt(string $ciphertext, string $key, string $iv): string
 	{
 		$decrypted = openssl_decrypt($ciphertext, 'aes-256-cbc', $key, OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING, $iv);
-		return self::pkcs7Unpad($decrypted);
+		if($decrypted)
+		{
+			return self::pkcs7Unpad($decrypted);
+		}
+		else
+		{
+			throw new \RuntimeException('Failed to decrypt ciphertext');
+		}
 	}
+
 
 	/**
 	 * Truncated HMAC-SHA256 (first 10 bytes), per WhatsApp spec.
