@@ -2,6 +2,9 @@
 
 namespace I2CRM\WSC;
 
+/**
+ * HKDF-SHA256 helper to derive WhatsApp media key material.
+ */
 final class Hkdf
 {
 	/**
